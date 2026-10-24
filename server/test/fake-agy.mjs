@@ -4,6 +4,10 @@ import fs from 'node:fs';
 
 const mode = process.env.FAKE_AGY_MODE ?? 'ok';
 const argv = process.argv.slice(2);
+if (argv[0] === '--version') {
+  process.stdout.write(`${process.env.FAKE_AGY_VERSION ?? '1.4.7'}\n`);
+  process.exit(0);
+}
 const envelope = (response, extra = {}) =>
   JSON.stringify({
     conversation_id: 'fake-conv',
@@ -21,6 +25,13 @@ switch (mode) {
     break;
   case 'args':
     process.stdout.write(envelope(JSON.stringify(argv)) + '\n');
+    break;
+  case 'env':
+    process.stdout.write(envelope(JSON.stringify(process.env)) + '\n');
+    break;
+  case 'notloggedin':
+    process.stderr.write('error: You are not logged into Antigravity.\n');
+    process.exitCode = 1;
     break;
   case 'cwd':
     process.stdout.write(envelope(process.cwd()) + '\n');

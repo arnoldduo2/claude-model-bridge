@@ -12,6 +12,9 @@ import { defaultRoutes } from './routes/index.js';
 import type { Route } from './routes/types.js';
 import { formatLog, formatStatus } from './status.js';
 
+// The read-only agy agent's PreToolUse hook imports the bundle and calls this (see routes/antigravity.ts).
+export { runAgyGuard } from './agy-guard.js';
+
 const ASK_DESCRIPTION = [
   'Delegate a question to a free model (Antigravity/Gemini, Gemini API or OpenRouter) to save Claude usage.',
   'Use it for broad codebase reading, locating where something is handled, summarising large files or logs, and first-draft plans.',

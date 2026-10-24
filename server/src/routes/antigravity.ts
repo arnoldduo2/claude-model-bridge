@@ -1,35 +1,50 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import type { BridgeConfig } from '../config.js';
+import { GUARD_PROJECT_ENV, GUARD_TOOLS } from '../agy-guard.js';
 import { buildPrompt } from '../prompts.js';
 import { stripKeys } from '../redact.js';
 import { RouteError, type FailureKind, type Route, type RouteRequest, type RouteResult } from './types.js';
 
-// How agy is driven is recorded in docs/findings.md. In short: print mode with JSON output, no shell, no TTY, and a
-// custom agent whose tool list has no write, shell or MCP tools. The default agent writes files and runs allow-listed
-// commands in print mode, so it is never used.
+// How agy is driven is recorded in docs/findings.md. In short: print mode with JSON output, no shell, no TTY, a
+// custom agent whose tool list has no write, shell, search or MCP tools, and a PreToolUse guard hook (agy-guard.ts)
+// that denies any other tool and any path outside the project or matching the secret-file rules. The default agent
+// writes files and runs allow-listed commands in print mode, so it is never used.
 
-/** The only tools the bridge's agy agent gets. */
-export const READ_ONLY_TOOLS = ['view_file', 'list_dir', 'grep_search', 'find_by_name'] as const;
+export { runAgyGuard } from '../agy-guard.js';
+
+/** The only tools the bridge's agy agent gets. grep_search is left out: its results cannot be filtered for secrets. */
+export const READ_ONLY_TOOLS = GUARD_TOOLS;
+
+/** agy versions the recipe was verified on: major 1, minor 4 or newer. */
+export const TESTED_AGY = { major: 1, minMinor: 4 } as const;
 
 const AGENT_PREFIX = 'cmb-readonly-';
 const AGENT_FILE_RE = /^cmb-readonly-[0-9a-f]{16}\.md$/;
 const AGENT_WORKSPACE = 'agy-workspace';
-// Windows limits a whole command line to 32767 characters.
-const MAX_PROMPT_CHARS = 30_000;
+const GUARD_FILE = 'cmb-guard.mjs';
+// Windows limits a whole command line (program plus quoted arguments) to 32767 characters.
+const MAX_COMMAND_LINE = 32_000;
 const MAX_OUTPUT_BYTES = 5_000_000;
 // After a kill, how long to wait for the process to report its exit before giving up on it.
 const KILL_GRACE_MS = 2_000;
+const VERSION_TIMEOUT_MS = 15_000;
+// Env vars never passed to agy (and so to any hook it runs). Configured key values are removed under any name too.
+const SECRET_ENV = ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'OPENROUTER_API_KEY'];
 
 const INSTALL_HINT =
   'Antigravity CLI (agy) not found. To install it on Windows (PowerShell): irm https://antigravity.google/cli/install.ps1 | iex — then run agy once in a terminal and sign in. If agy is installed somewhere else, set antigravity.command in ~/.claude-model-bridge/config.json to its full path.';
 
+// The URL of the module that exports runAgyGuard: in the shipped bundle this is bridge.mjs itself.
+const SELF_URL = import.meta.url;
+
 export interface ReadOnlyAgent {
   /** Agent name passed to --agent. */
   name: string;
-  /** Bridge-owned folder holding .agents/agents/<name>.md, passed to --add-dir. */
+  /** Bridge-owned folder holding .agents/agents/<name>.md and the guard hook, passed to --add-dir. */
   dir: string;
 }
 
@@ -47,23 +62,41 @@ function agentDefinition(name: string): string {
     '---',
     '',
     '# System Prompt',
-    'You are a read-only code analysis assistant. You can only view, list and search files. You never create, modify or delete files and never run commands.',
+    'You are a read-only code analysis assistant. You can only view and list files and find files by name. You never create, modify or delete files and never run commands.',
     '',
   ].join('\n');
 }
 
-/**
- * Writes (or repairs) the bridge's read-only agy agent under <homeDir>/agy-workspace and returns it.
- * The name has a random suffix made once per install, so a project cannot shadow it with an agent of the same name.
- */
-export function ensureReadOnlyAgent(homeDir: string): ReadOnlyAgent {
-  const dir = path.join(homeDir, AGENT_WORKSPACE);
-  const agentsDir = path.join(dir, '.agents', 'agents');
-  fs.mkdirSync(agentsDir, { recursive: true });
-  const existing = fs.readdirSync(agentsDir).filter((f) => AGENT_FILE_RE.test(f)).sort()[0];
-  const name = existing ? existing.slice(0, -'.md'.length) : AGENT_PREFIX + crypto.randomBytes(8).toString('hex');
-  const file = path.join(agentsDir, `${name}.md`);
-  const want = agentDefinition(name);
+// agy splits a hook command on spaces and does not honour quotes, and runs it with the hooks.json folder as cwd.
+// So the command is `node <file>` with a relative file name; the route puts node's folder first on agy's PATH.
+function hooksDefinition(): string {
+  return `${JSON.stringify(
+    {
+      'claude-model-bridge-guard': {
+        PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: `node ${GUARD_FILE}`, timeout: 20 }] }],
+      },
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+function guardScript(moduleUrl: string): string {
+  return [
+    '// Generated by Claude Model Bridge: the PreToolUse guard of its read-only agy agent. Any failure denies.',
+    "const deny = (r) => process.stdout.write(JSON.stringify({ decision: 'deny', reason: 'Blocked by Claude Model Bridge: ' + r }));",
+    'try {',
+    `  const m = await import(${JSON.stringify(moduleUrl)});`,
+    "  if (typeof m.runAgyGuard !== 'function') throw new Error('no guard');",
+    '  await m.runAgyGuard();',
+    '} catch {',
+    "  deny('the guard could not run');",
+    '}',
+    '',
+  ].join('\n');
+}
+
+function writeIfChanged(file: string, want: string): void {
   let have: string | undefined;
   try {
     have = fs.readFileSync(file, 'utf8');
@@ -71,6 +104,22 @@ export function ensureReadOnlyAgent(homeDir: string): ReadOnlyAgent {
     have = undefined;
   }
   if (have !== want) fs.writeFileSync(file, want, 'utf8');
+}
+
+/**
+ * Writes (or repairs) the bridge's read-only agy agent and its guard hook under <homeDir>/agy-workspace.
+ * The name has a random suffix made once per install, so a project cannot shadow it with an agent of the same name.
+ */
+export function ensureReadOnlyAgent(homeDir: string, guardModuleUrl: string = SELF_URL): ReadOnlyAgent {
+  const dir = path.join(homeDir, AGENT_WORKSPACE);
+  const dotAgents = path.join(dir, '.agents');
+  const agentsDir = path.join(dotAgents, 'agents');
+  fs.mkdirSync(agentsDir, { recursive: true });
+  const existing = fs.readdirSync(agentsDir).filter((f) => AGENT_FILE_RE.test(f)).sort()[0];
+  const name = existing ? existing.slice(0, -'.md'.length) : AGENT_PREFIX + crypto.randomBytes(8).toString('hex');
+  writeIfChanged(path.join(agentsDir, `${name}.md`), agentDefinition(name));
+  writeIfChanged(path.join(dotAgents, 'hooks.json'), hooksDefinition());
+  writeIfChanged(path.join(dotAgents, GUARD_FILE), guardScript(guardModuleUrl));
   return { name, dir };
 }
 
@@ -114,16 +163,13 @@ function windowsExtensions(): string[] {
 }
 
 /** Absolute path of the executable, or null. Bare names are looked up on PATH (and agy's default install folder). */
-function resolveExecutable(name: string): string | null {
+function resolveExecutable(name: string, extraDirs: string[] = []): string | null {
   const win = process.platform === 'win32';
   const candidates = (base: string) => (win && !path.extname(base) ? windowsExtensions().map((e) => base + e) : [base]);
   if (path.isAbsolute(name) || name.includes('/') || name.includes('\\')) {
     return candidates(path.resolve(name)).find(isFile) ?? null;
   }
-  const dirs = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
-  if (win && name.toLowerCase() === 'agy' && process.env.LOCALAPPDATA) {
-    dirs.push(path.join(process.env.LOCALAPPDATA, 'agy', 'bin'));
-  }
+  const dirs = [...(process.env.PATH ?? '').split(path.delimiter).filter(Boolean), ...extraDirs];
   for (const d of dirs) {
     const hit = candidates(path.join(d, name)).find(isFile);
     if (hit) return hit;
@@ -131,25 +177,187 @@ function resolveExecutable(name: string): string | null {
   return null;
 }
 
-type Resolved = { exe: string; args: string[] } | { hint: string };
+/** The folder of a real `node` binary for the guard hook, or null. */
+function nodeDir(): string | null {
+  if (/^node(\.exe)?$/i.test(path.basename(process.execPath))) return path.dirname(process.execPath);
+  const found = resolveExecutable('node');
+  return found && /^node(\.exe)?$/i.test(path.basename(found)) ? path.dirname(found) : null;
+}
+
+/** The environment agy runs with: no API keys, the project for the guard, and node first on PATH. */
+export function agyEnv(cfg: BridgeConfig, project: string, node: string, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const keys = [cfg.gemini.apiKey, cfg.openrouter.apiKey].filter((k): k is string => !!k);
+  const env: NodeJS.ProcessEnv = {};
+  let pathKey = 'PATH';
+  for (const [k, v] of Object.entries(base)) {
+    if (v === undefined) continue;
+    if (SECRET_ENV.includes(k.toUpperCase())) continue;
+    if (keys.some((key) => v.includes(key))) continue;
+    if (k.toUpperCase() === GUARD_PROJECT_ENV) continue;
+    if (k.toUpperCase() === 'PATH') pathKey = k;
+    env[k] = v;
+  }
+  env[pathKey] = [node, env[pathKey]].filter(Boolean).join(path.delimiter);
+  env[GUARD_PROJECT_ENV] = project;
+  return env;
+}
+
+type Resolved = { exe: string; args: string[]; node: string; version: string } | { hint: string };
 const resolveCache = new Map<string, Resolved>();
+
+/** Forget cached command lookups (tests, or after the user installs agy). */
+export function resetAgyCache(): void {
+  resolveCache.clear();
+}
+
+export function parseAgyVersion(text: string): { major: number; minor: number; patch: number } | null {
+  const m = /(\d+)\.(\d+)\.(\d+)/.exec(text);
+  return m ? { major: Number(m[1]), minor: Number(m[2]), patch: Number(m[3]) } : null;
+}
+
+function versionHint(exe: string, args: string[]): { version: string } | { hint: string } {
+  const r = spawnSync(exe, [...args, '--version'], {
+    encoding: 'utf8',
+    timeout: VERSION_TIMEOUT_MS,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, GEMINI_API_KEY: '', OPENROUTER_API_KEY: '' },
+  });
+  const out = `${r.stdout ?? ''}`.trim();
+  const v = parseAgyVersion(out);
+  if (r.error || r.status !== 0 || !v) {
+    return { hint: `could not read the Antigravity CLI version (\`agy --version\`). ${INSTALL_HINT}` };
+  }
+  if (v.major !== TESTED_AGY.major || v.minor < TESTED_AGY.minMinor) {
+    return {
+      hint: `Antigravity CLI ${v.major}.${v.minor}.${v.patch} is not a version the bridge was tested with (needs ${TESTED_AGY.major}.${TESTED_AGY.minMinor} or a later ${TESTED_AGY.major}.x). Update agy with \`agy update\`, or check for a newer bridge.`,
+    };
+  }
+  return { version: `${v.major}.${v.minor}.${v.patch}` };
+}
 
 function resolveCommand(command: string): Resolved {
   const cached = resolveCache.get(command);
   if (cached) return cached;
   const [first, ...rest] = splitCommand(command);
+  const fallback =
+    process.platform === 'win32' && first?.toLowerCase() === 'agy' && process.env.LOCALAPPDATA
+      ? [path.join(process.env.LOCALAPPDATA, 'agy', 'bin')]
+      : [];
   let result: Resolved;
-  const exe = first ? resolveExecutable(first) : null;
+  const exe = first ? resolveExecutable(first, fallback) : null;
+  const node = nodeDir();
   if (!exe) {
     result = { hint: INSTALL_HINT };
   } else if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(exe)) {
     // Node can only start a .cmd through cmd.exe, which would re-parse the prompt. Require the real .exe instead.
     result = { hint: `antigravity.command resolves to ${exe}, a batch file. Set antigravity.command to the full path of agy.exe.` };
+  } else if (!node) {
+    result = { hint: 'The antigravity route needs Node.js available as `node` (it runs the bridge read-only guard).' };
   } else {
-    result = { exe, args: rest };
+    const v = versionHint(exe, rest);
+    result = 'hint' in v ? v : { exe, args: rest, node, version: v.version };
   }
   resolveCache.set(command, result);
   return result;
+}
+
+const CUSTOMIZATION_DIRS = ['.agents', '.agent', '_agents', '_agent'];
+
+function readText(file: string): string {
+  return fs.readFileSync(file, 'utf8');
+}
+
+function frontmatter(text: string): string {
+  const m = /^﻿?---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  return m ? m[1] : '';
+}
+
+/** Agent definition files in an agents folder: <name>.md and <name>/agent.md. */
+function agentFiles(agentsDir: string): string[] {
+  const out: string[] = [];
+  for (const e of fs.readdirSync(agentsDir, { withFileTypes: true })) {
+    const p = path.join(agentsDir, e.name);
+    if (e.isFile() && e.name.toLowerCase().endsWith('.md')) out.push(p);
+    else if (e.isDirectory()) {
+      for (const f of fs.readdirSync(p, { withFileTypes: true })) {
+        if (f.isFile() && f.name.toLowerCase().endsWith('.md')) out.push(path.join(p, f.name));
+      }
+    }
+  }
+  return out;
+}
+
+/** Why one agy customization folder could make agy run commands or load outside code, or null. */
+function customizationProblem(dir: string): string | null {
+  const has = (name: string) => fs.existsSync(path.join(dir, name));
+  for (const name of ['hooks.json', 'plugins', 'plugins.json', 'mcp_config.json']) {
+    if (has(name)) return path.join(dir, name);
+  }
+  for (const name of ['skills.json', 'agents.json']) {
+    if (has(name) && /"(inherits|entries)"/.test(readText(path.join(dir, name)))) return path.join(dir, name);
+  }
+  const agentsDir = path.join(dir, 'agents');
+  if (fs.existsSync(agentsDir) && fs.statSync(agentsDir).isDirectory()) {
+    for (const f of agentFiles(agentsDir)) {
+      if (/^\s*(hooks|plugins|mcpServers)\s*:/m.test(frontmatter(readText(f)))) return f;
+    }
+  }
+  return null;
+}
+
+/**
+ * agy loads hooks, plugins, MCP servers and agent definitions from .agents/.agent/_agents/_agent folders in the
+ * project and its parents (up to the repository root). Hooks and MCP servers run commands, so any of them makes the
+ * project unsafe to hand to agy. Every ancestor up to the drive root is checked, not only up to the repository
+ * root; the user's own home folder is skipped, because its folders are the user's own agy setup, not the project's.
+ */
+export function projectCustomizationProblem(cwd: string, skip: string[] = [os.homedir()]): string | null {
+  const same = (a: string, b: string) =>
+    process.platform === 'win32' ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase() : path.resolve(a) === path.resolve(b);
+  let dir = path.resolve(cwd);
+  for (;;) {
+    if (!skip.some((s) => s && same(dir, s))) {
+      for (const name of CUSTOMIZATION_DIRS) {
+        const d = path.join(dir, name);
+        try {
+          if (!fs.statSync(d).isDirectory()) continue;
+        } catch {
+          continue;
+        }
+        try {
+          const problem = customizationProblem(d);
+          if (problem) return problem;
+        } catch {
+          return d; // unreadable: fail closed
+        }
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+/** Length of the command line Windows builds from exe and args (libuv quoting rules). */
+export function commandLineLength(exe: string, args: string[]): number {
+  const quote = (a: string): string => {
+    if (a === '') return '""';
+    if (!/[\s"]/.test(a)) return a;
+    let out = '"';
+    let backslashes = 0;
+    for (const ch of a) {
+      if (ch === '\\') {
+        backslashes++;
+        continue;
+      }
+      if (ch === '"') out += '\\'.repeat(backslashes * 2 + 1) + '"';
+      else out += '\\'.repeat(backslashes) + ch;
+      backslashes = 0;
+    }
+    return `${out}${'\\'.repeat(backslashes * 2)}"`;
+  };
+  return [exe, ...args].map(quote).join(' ').length;
 }
 
 function projectPrompt(req: RouteRequest): string {
@@ -157,8 +365,8 @@ function projectPrompt(req: RouteRequest): string {
     buildPrompt(req),
     [
       'Project files:',
-      `Not attached. Read what you need yourself from the project folder ${req.cwd} with your file tools, and stay inside that folder.`,
-      'Never open, read or quote .env files (.env, .env.*), private keys or certificates (*.pem, *.key, *.p12, *.pfx, id_rsa*, id_ed25519*), or credential and secret stores (credentials*, secrets*, *.keystore, .npmrc, .netrc, .pypirc, service-account JSON). If the answer depends on them, say so instead.',
+      `Not attached. Read what you need yourself from the project folder ${req.cwd} with your file tools (view_file, list_dir, find_by_name), using absolute paths inside that folder.`,
+      'Never open, read or quote .env files (.env, .env.*), private keys or certificates (*.pem, *.key, *.p12, *.pfx, id_rsa*, id_ed25519*), or credential and secret stores (credentials*, secrets*, *.keystore, .npmrc, .netrc, .pypirc, service-account JSON). The bridge blocks them; if the answer depends on them, say so instead.',
     ].join('\n'),
   ].join('\n\n');
 }
@@ -219,8 +427,15 @@ function summarise(text: string): string {
 /** Maps agy's error text (see docs/findings.md) to a failure kind. */
 export function classifyAgyError(text: string): FailureKind {
   if (/unknown agent/i.test(text)) return 'unavailable';
+  if (/not trusted|untrusted|trust (this|the) (folder|workspace)/i.test(text)) return 'unavailable';
   if (/RESOURCE_EXHAUSTED|quota|rate.?limit|too many requests|credits balance is too low|\b429\b/i.test(text)) return 'rate_limit';
-  if (/UNAUTHENTICATED|authenticat|\blog ?(back )?in\b|\bsign ?in\b|\bsigned out\b|\bnot signed\b|\b401\b/i.test(text)) return 'auth';
+  if (
+    /UNAUTHENTICATED|authenticat|\blog ?(back )?in\b|\bsign ?in\b|\bsigned out\b|\bnot signed\b|\bnot logged in(to)?\b|\blogged out\b|\b401\b/i.test(
+      text,
+    )
+  ) {
+    return 'auth';
+  }
   if (/UNAVAILABLE|\b503\b|network|connection|timed? ?out|DEADLINE_EXCEEDED/i.test(text)) return 'unavailable';
   return 'other';
 }
@@ -230,10 +445,7 @@ function failure(code: number | null, envelope: AgyEnvelope | null, stderr: stri
   const kind = classifyAgyError(text);
   const detail = summarise(text) || `agy exited with code ${code}`;
   if (kind === 'unavailable' && /unknown agent/i.test(text)) {
-    return new RouteError(
-      'unavailable',
-      "agy did not load the bridge's read-only agent (is the project folder trusted in agy?); not running without it",
-    );
+    return new RouteError('unavailable', "agy did not load the bridge's read-only agent; not running without it");
   }
   return new RouteError(kind, `agy (exit ${code}): ${detail}`);
 }
@@ -250,10 +462,11 @@ export const antigravityRoute: Route = {
     const resolved = resolveCommand(cfg.antigravity.command);
     if ('hint' in resolved) throw new RouteError('not_configured', resolved.hint);
 
-    if (fs.existsSync(path.join(req.cwd, '.agents', 'hooks.json'))) {
+    const unsafe = projectCustomizationProblem(req.cwd);
+    if (unsafe) {
       throw new RouteError(
         'unavailable',
-        'the project defines agy hooks (.agents/hooks.json), which can run commands; not delegating to antigravity',
+        `${unsafe} can make agy run commands or load outside code (hooks, plugins, MCP servers); not delegating this project to antigravity`,
       );
     }
 
@@ -265,12 +478,16 @@ export const antigravityRoute: Route = {
     }
 
     const prompt = stripKeys(projectPrompt(req), [cfg.gemini.apiKey, cfg.openrouter.apiKey]);
-    if (prompt.length > MAX_PROMPT_CHARS) {
-      throw new RouteError('other', `question too long for the agy command line (${prompt.length} > ${MAX_PROMPT_CHARS} characters)`);
+    const args = [...resolved.args, ...buildAgyArgs(prompt, agent, req.model)];
+    const length = commandLineLength(resolved.exe, args);
+    if (length > MAX_COMMAND_LINE) {
+      throw new RouteError(
+        'other',
+        `the question is too long for the agy command line (${length} characters, limit ${MAX_COMMAND_LINE}); shorten it or use another route`,
+      );
     }
     if (signal.aborted) throw new RouteError('timeout', 'no response before the route timeout');
 
-    const args = [...resolved.args, ...buildAgyArgs(prompt, agent, req.model)];
     return new Promise<RouteResult>((resolve, reject) => {
       let child: ChildProcess;
       try {
@@ -280,7 +497,7 @@ export const antigravityRoute: Route = {
           shell: false,
           windowsHide: true,
           detached: process.platform !== 'win32',
-          env: process.env,
+          env: agyEnv(cfg, req.cwd, resolved.node),
         });
       } catch (err) {
         reject(new RouteError('unavailable', `could not start agy: ${(err as Error).message}`));
