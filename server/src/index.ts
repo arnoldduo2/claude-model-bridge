@@ -64,7 +64,7 @@ function refusedCwd(project: string, cfg: BridgeConfig): string | null {
 }
 
 export function createServer(cfg: BridgeConfig | Error = loadConfigOrError(), routes: Route[] = defaultRoutes()): McpServer {
-  const server = new McpServer({ name: 'claude-model-bridge', version: '0.1.1' });
+  const server = new McpServer({ name: 'claude-model-bridge', version: '0.2.0' });
 
   server.registerTool(
     'ask_model',

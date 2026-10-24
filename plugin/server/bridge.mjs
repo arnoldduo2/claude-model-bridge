@@ -23309,7 +23309,7 @@ function refusedCwd(project, cfg) {
   return null;
 }
 function createServer(cfg = loadConfigOrError(), routes = defaultRoutes()) {
-  const server = new McpServer({ name: "claude-model-bridge", version: "0.1.1" });
+  const server = new McpServer({ name: "claude-model-bridge", version: "0.2.0" });
   server.registerTool(
     "ask_model",
     {

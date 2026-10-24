@@ -8,9 +8,9 @@ Claude keeps doing the edits; the free model only reads and reports, citing `pat
 
 The bridge tries routes in order and moves on after a timeout, a failure, an empty answer or a 429 (which starts a cooldown).
 
-| Route | What it uses | Status in v0.1.1 |
+| Route | What it uses | Status in v0.2.0 |
 |---|---|---|
-| `antigravity` | Google's official Antigravity CLI (`agy`) with a Google AI Pro subscription | Not yet available. `bridge_status` shows it as unavailable and the router skips it. |
+| `antigravity` | Google's official Antigravity CLI (`agy`) with a Google AI Pro subscription | Available (tested with `agy` 1.4.7 on Windows). agy reads the project folder itself, read-only. |
 | `gemini` | Gemini API with a free AI Studio key (`GEMINI_API_KEY`) | Available |
 | `openrouter` | OpenRouter `:free` models (`OPENROUTER_API_KEY`), or any OpenAI-compatible endpoint set with `openrouter.baseUrl` | Available |
 
@@ -39,6 +39,7 @@ Requires Node 20 or newer available as `node`.
 
 Run `/model-bridge:bridge-setup`. It calls `bridge_status` and prints the exact steps for each route that is not configured.
 
+- Antigravity: install `agy` (Windows PowerShell: `irm https://antigravity.google/cli/install.ps1 | iex`), run `agy` once in a terminal and sign in with your Google account. The bridge finds `agy` on `PATH` (on Windows also in `%LOCALAPPDATA%\agy\bin`); set `antigravity.command` to its full path if it lives elsewhere.
 - Gemini: create a key at https://aistudio.google.com/apikey.
 - OpenRouter: create a key at https://openrouter.ai/keys.
 - Windows: `setx GEMINI_API_KEY "<your key>"` (or `OPENROUTER_API_KEY`) in a terminal, then fully restart Claude. macOS/Linux: `export GEMINI_API_KEY="<your key>"` in your shell profile.
@@ -49,7 +50,7 @@ Never paste keys into the chat. Run `/model-bridge:bridge-status` afterwards to 
 ## Usage
 
 - Just work normally. Claude delegates reading-heavy questions through `ask_model` and spot-checks the cited lines before relying on them.
-- Force a handoff: `/model-bridge:ask [agy|gemini|openrouter] <question>`. A forced route that cannot be used (for example `agy`, which is not available in this build) falls back to the next route, and the footer says `requested antigravity: not available in this build`.
+- Force a handoff: `/model-bridge:ask [agy|gemini|openrouter] <question>`. A forced route that cannot be used (for example `agy` when it is not installed) falls back to the next route, and the footer says `requested antigravity: not configured`.
 - Route health, cooldowns and today's handoff counts: `/model-bridge:bridge-status`.
 - Recent handoffs (metadata only): `/model-bridge:bridge-log [count]`.
 
@@ -66,7 +67,7 @@ Optional file: `~/.claude-model-bridge/config.json`. Start from [config.example.
 | Field | Default | Meaning |
 |---|---|---|
 | `routeOrder` | `["antigravity", "gemini", "openrouter"]` | Order routes are tried in `auto` mode |
-| `antigravity.command` | `agy` | Antigravity CLI binary |
+| `antigravity.command` | `agy` | Antigravity CLI binary: a name on `PATH` or a full path to `agy.exe` |
 | `antigravity.timeoutMs` | `180000` | Kill the route after this long |
 | `gemini.apiKey` | unset | Prefer the env var |
 | `gemini.model` | unset | Override the Gemini model |
@@ -82,9 +83,11 @@ Optional file: `~/.claude-model-bridge/config.json`. Start from [config.example.
 
 ## Privacy and terms
 
-- **Local files only.** Logs, state and config live in `~/.claude-model-bridge/`. Nothing is written into your projects. Logs hold metadata only unless `log.fullText` is `true`.
+- **Local files only.** Logs, state and config live in `~/.claude-model-bridge/`, as does the bridge's read-only agy agent (`agy-workspace/`). Nothing is written into your projects. Logs hold metadata only unless `log.fullText` is `true`.
 - **Data use.** Free tiers (the Gemini API free tier, many OpenRouter free models, FreeLLMAPI's upstreams) may use submitted code to improve their products. Only delegate code you are comfortable sending, and never secrets: the question and the files read leave your machine.
 - **Secret filtering.** The bridge never sends `.env*` files, key and certificate files, or credential stores (`.ssh`, `.aws`, `.kube`, `.azure`, `.config/gh`, `.config/gcloud`, `.docker/config.json` and similar). In the files it does send, key-shaped tokens and values assigned to names like `password`, `secret`, `token` or `api_key` are replaced with `[REDACTED]`, and your configured API keys are stripped from every prompt. This is a safety net, not a guarantee: still keep secrets out of delegated questions.
+- **Antigravity reads files itself.** On the `antigravity` route the bridge sends only the question; agy opens project files with its own tools. Those files are not redacted by the bridge. The prompt tells agy not to open `.env*`, key, certificate or credential files, but that is an instruction to the model, not a filter.
+- **Antigravity is read-only.** agy runs as a bridge-owned custom agent whose only tools are `view_file`, `list_dir`, `grep_search` and `find_by_name`, with no MCP servers. It cannot write files or run commands, and `--dangerously-skip-permissions` is never used. Projects that define agy hooks (`.agents/hooks.json`) are not sent to agy. Details and the proof are in [docs/findings.md](docs/findings.md).
 - **Antigravity terms.** The bridge only ever runs Google's official `agy` binary. It never reads or reuses Google sign-in credentials, because Google's terms prohibit third-party use of Gemini CLI and Antigravity OAuth sign-in.
 
 ## Development
@@ -101,7 +104,6 @@ git config core.hooksPath .githooks   # secret-scan pre-commit check
 
 ## Roadmap
 
-- Antigravity route (`agy`) once usable non-interactively.
 - Phase 2: run a whole Claude Code session on free models when Claude's limit is exhausted, likely via FreeLLMAPI's Anthropic-compatible endpoint. API keys only, never a Google sign-in.
 
 ## License

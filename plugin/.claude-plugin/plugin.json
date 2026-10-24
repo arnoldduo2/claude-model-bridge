@@ -1,6 +1,6 @@
 {
   "name": "model-bridge",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Hand broad codebase reading, summaries and first-draft plans to a free model (Antigravity/Gemini, Gemini API or OpenRouter-compatible endpoints) to save Claude usage.",
   "author": {
     "name": "arnoldduo2"

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "model-bridge",
   "display_name": "Claude Model Bridge",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Hand broad codebase reading, summaries and first-draft plans to a free model (Gemini API or an OpenRouter-compatible endpoint) to save Claude usage.",
   "author": {
     "name": "arnoldduo2"

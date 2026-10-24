@@ -1,6 +1,6 @@
 {
   "name": "claude-model-bridge",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Local MCP server that lets Claude delegate questions to free models",
   "private": true,
   "type": "module",

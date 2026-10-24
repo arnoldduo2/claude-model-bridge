@@ -25,7 +25,7 @@ The `model-bridge` MCP server gives you `ask_model`, `bridge_status` and `bridge
 - Make the question self-contained and specific, and ask for a short answer: "Answer in at most 10 bullets. Cite each claim as `path:line`. No code listings unless asked."
 - Set `task` to `explore`, `plan`, `review` or `ask`.
 - Pass `paths` (files, folders or globs such as `src/**/*.ts`, relative to `cwd`) when you know the area. They are sent first, before anything the bridge picks itself.
-- Leave `route` as `auto` unless the user named one (`antigravity`, `gemini`, `openrouter`). `antigravity` is not available in this build yet.
+- Leave `route` as `auto` unless the user named one (`antigravity`, `gemini`, `openrouter`).
 - `cwd` defaults to the session project folder. In Claude Desktop chat there is no project folder, so always pass `cwd` as an absolute path to a specific project folder. Never pass a home folder or a drive root; the bridge refuses them.
 
 ## After you get an answer

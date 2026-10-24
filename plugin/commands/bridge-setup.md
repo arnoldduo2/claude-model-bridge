@@ -7,9 +7,11 @@ Set up the model bridge. Never ask the user to paste a key or token into this ch
 1. Call the `bridge_status` tool from the `model-bridge` MCP server and show the result. If it reports a config file problem, tell the user which field to fix in the named file (or to remove the file) and stop there.
 2. For each route that is not configured, print the matching steps below. Skip routes that are already configured.
 
-**antigravity** (uses your Google AI Pro subscription via Google's official CLI; this route activates in a later version of the bridge, so it will keep showing as unavailable for now):
+**antigravity** (uses your Google AI Pro subscription via Google's official CLI, which reads the project folder itself, read-only):
 - Install on Windows (PowerShell): `irm https://antigravity.google/cli/install.ps1 | iex`
 - Run `agy` once in a terminal and sign in with your Google account.
+- If `agy` is installed outside `PATH` (and, on Windows, outside `%LOCALAPPDATA%\agy\bin`), set `antigravity.command` in `~/.claude-model-bridge/config.json` to the full path of `agy.exe`.
+- If an answer fails with `auth`, run `agy` in a terminal and sign in again. If it fails because the read-only agent was not loaded, open `agy` once in that project folder and trust it when asked.
 
 **gemini** (Gemini API key):
 - Create a key at https://aistudio.google.com/apikey
