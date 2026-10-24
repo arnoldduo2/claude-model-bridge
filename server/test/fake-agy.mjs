@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const mode = process.env.FAKE_AGY_MODE ?? 'ok';
 const argv = process.argv.slice(2);
 if (argv[0] === '--version') {
+  if (process.env.FAKE_AGY_ENVFILE) fs.writeFileSync(process.env.FAKE_AGY_ENVFILE, JSON.stringify(process.env));
   process.stdout.write(`${process.env.FAKE_AGY_VERSION ?? '1.4.7'}\n`);
   process.exit(0);
 }

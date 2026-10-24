@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { PassThrough } from 'node:stream';
+import { PassThrough, Writable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 import { decideAgyToolCall, GUARD_PROJECT_ENV, runAgyGuard } from '../src/agy-guard.js';
 import { ensureReadOnlyAgent } from '../src/routes/antigravity.js';
@@ -97,6 +97,81 @@ describe('decideAgyToolCall', () => {
     }
   });
 
+  describe('version-control folders', () => {
+    function repoProject(): string {
+      const p = project();
+      fs.mkdirSync(path.join(p, '.git', 'refs'), { recursive: true });
+      fs.writeFileSync(path.join(p, '.git', 'config'), '[remote "origin"]\n\turl = https://user:tok@example.invalid/r.git\n');
+      fs.mkdirSync(path.join(p, 'sub', '.git'), { recursive: true });
+      fs.writeFileSync(path.join(p, 'sub', '.git', 'config'), 'x');
+      for (const d of ['.svn', '.hg']) {
+        fs.mkdirSync(path.join(p, d));
+        fs.writeFileSync(path.join(p, d, 'hgrc'), 'x');
+      }
+      fs.writeFileSync(path.join(p, '.gitignore'), 'node_modules\n');
+      fs.mkdirSync(path.join(p, '.github', 'workflows'), { recursive: true });
+      fs.writeFileSync(path.join(p, '.github', 'workflows', 'ci.yml'), 'on: push');
+      return p;
+    }
+    const vcs = /version-control folders/;
+
+    it.each([
+      ['.git/config', (p: string) => path.join(p, '.git', 'config')],
+      ['.GIT/config', (p: string) => path.join(p, '.GIT', 'config')],
+      ['.git\\config (backslash)', (p: string) => `${p}\\.git\\config`],
+      ['.git/config (forward slash)', (p: string) => `${p.replace(/\\/g, '/')}/.git/config`],
+      ['relative .git/config', () => '.git/config'],
+      ['sub/.git/config', (p: string) => path.join(p, 'sub', '.git', 'config')],
+      ['src/../.git/config', (p: string) => path.join(p, 'src', '..', '.git', 'config')],
+      ['.svn/…', (p: string) => path.join(p, '.svn', 'hgrc')],
+      ['.hg/…', (p: string) => path.join(p, '.hg', 'hgrc')],
+    ])('denies view_file on %s', (_label, at) => {
+      const p = repoProject();
+      const d = decideAgyToolCall(payload(p, 'view_file', { AbsolutePath: at(p) }), p);
+      expect(d.decision).toBe('deny');
+      expect(d.reason).toMatch(vcs);
+    });
+
+    it('denies list_dir and find_by_name on .git or inside it', () => {
+      const p = repoProject();
+      for (const target of [path.join(p, '.git'), path.join(p, '.Git'), path.join(p, '.git', 'refs'), path.join(p, 'sub', '.git')]) {
+        expect(decideAgyToolCall(payload(p, 'list_dir', { DirectoryPath: target }), p).reason).toMatch(vcs);
+        expect(decideAgyToolCall(payload(p, 'find_by_name', { SearchDirectory: target, Pattern: '*' }), p).reason).toMatch(vcs);
+      }
+    });
+
+    it.runIf(process.platform === 'win32')('denies the device-path form of .git/config', () => {
+      const p = repoProject();
+      for (const target of [`\\\\?\\${path.join(p, '.git', 'config')}`, `\\\\.\\${path.join(p, '.git', 'config')}`]) {
+        expect(decideAgyToolCall(payload(p, 'view_file', { AbsolutePath: target }), p).decision).toBe('deny');
+      }
+    });
+
+    it.runIf(process.platform === 'win32')('denies an 8.3 short name of .git (when the volume has short names)', (ctx) => {
+      const p = repoProject();
+      // Verbatim arguments: Node would otherwise escape the inner quotes for cmd.exe.
+      const r = spawnSync('cmd.exe', [`/d /s /c "for %I in ("${path.join(p, '.git')}") do @echo %~sI"`], {
+        encoding: 'utf8',
+        windowsVerbatimArguments: true,
+      });
+      const short = r.stdout.trim();
+      if (!/~\d+$/.test(path.basename(short))) ctx.skip();
+      // Only the last segment short (e.g. <project>\GIT~1\config), so the lexical checks pass and realpath must catch it.
+      const target = path.join(p, path.basename(short), 'config');
+      expect(path.basename(short).toLowerCase()).not.toBe('.git');
+      const d = decideAgyToolCall(payload(p, 'view_file', { AbsolutePath: target }), p);
+      expect(d.decision).toBe('deny');
+      expect(d.reason).toMatch(vcs);
+    });
+
+    it('still allows .gitignore, .github and the project root', () => {
+      const p = repoProject();
+      expect(decideAgyToolCall(payload(p, 'view_file', { AbsolutePath: path.join(p, '.gitignore') }), p)).toEqual(allow);
+      expect(decideAgyToolCall(payload(p, 'view_file', { AbsolutePath: path.join(p, '.github', 'workflows', 'ci.yml') }), p)).toEqual(allow);
+      expect(decideAgyToolCall(payload(p, 'list_dir', { DirectoryPath: p }), p)).toEqual(allow);
+    });
+  });
+
   it('denies listing or searching a secret folder', () => {
     const p = project();
     expect(decideAgyToolCall(payload(p, 'list_dir', { DirectoryPath: path.join(p, '.aws') }), p).decision).toBe('deny');
@@ -161,6 +236,22 @@ describe('runAgyGuard', () => {
     const out = await runWith(null, { [GUARD_PROJECT_ENV]: 'C:/x' }, 200);
     expect(JSON.parse(out).decision).toBe('deny');
   });
+
+  it('reports whether the decision was written', async () => {
+    const p = project();
+    const stdin = new PassThrough();
+    const ok = new PassThrough();
+    const okRun = runAgyGuard({ stdin, stdout: ok, env: { [GUARD_PROJECT_ENV]: p } });
+    stdin.end('{}');
+    expect(await okRun).toBe(true);
+
+    const broken = new Writable({ write: (_c, _e, cb) => cb(new Error('EPIPE')) });
+    broken.on('error', () => {});
+    const stdin2 = new PassThrough();
+    const badRun = runAgyGuard({ stdin: stdin2, stdout: broken, env: { [GUARD_PROJECT_ENV]: p } });
+    stdin2.end('{}');
+    expect(await badRun).toBe(false);
+  });
 });
 
 describe('the installed hook end to end (committed bundle)', () => {
@@ -195,5 +286,28 @@ describe('the installed hook end to end (committed bundle)', () => {
     const p = project();
     const r = hook(JSON.stringify(payload(p, 'view_file', { AbsolutePath: path.join(p, 'src', 'db.js') })), { [GUARD_PROJECT_ENV]: p }, pathToFileURL(path.join(tmpDir(), 'missing.mjs')).href);
     expect(JSON.parse(r.stdout).decision).toBe('deny');
+    expect(r.status).toBe(0);
   }, 60_000);
+
+  it('exits 0 only after a decision is written: allow → 0, and .git/config is denied', () => {
+    const p = project();
+    fs.mkdirSync(path.join(p, '.git'));
+    fs.writeFileSync(path.join(p, '.git', 'config'), 'x');
+    const env = { [GUARD_PROJECT_ENV]: p };
+    const ok = hook(JSON.stringify(payload(p, 'view_file', { AbsolutePath: path.join(p, 'src', 'db.js') })), env);
+    expect(ok.status).toBe(0);
+    expect(ok.stdout).not.toBe('');
+    const git = hook(JSON.stringify(payload(p, 'view_file', { AbsolutePath: path.join(p, '.git', 'config') })), env);
+    expect(JSON.parse(git.stdout).reason).toMatch(/version-control/);
+  }, 60_000);
+
+  it('the shim starts with a failing exit code and clears it only on a written decision', () => {
+    const a = ensureReadOnlyAgent(tmpDir(), 'file:///x/bridge.mjs');
+    const script = fs.readFileSync(path.join(a.dir, '.agents', 'cmb-guard.mjs'), 'utf8');
+    const lines = script.split('\n');
+    const first = lines.findIndex((l) => !l.startsWith('//') && l.trim());
+    expect(lines[first]).toBe('process.exitCode = 1;');
+    expect(script).toContain('if ((await m.runAgyGuard()) === true) process.exitCode = 0;');
+    expect(script).toMatch(/\(err\) => \{ if \(!err\) process\.exitCode = 0; \}/);
+  });
 });

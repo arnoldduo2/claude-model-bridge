@@ -293,6 +293,30 @@ describe('antigravityRoute', () => {
     expect(antigravityRoute.configured(cfg())).toMatch(/could not read the Antigravity CLI version/);
   });
 
+  it('runs the version check without API keys in the environment', () => {
+    const envFile = path.join(tmpDir(), 'env.json');
+    process.env.FAKE_AGY_ENVFILE = envFile;
+    const saved = { g: process.env.GOOGLE_API_KEY, o: process.env.OPENROUTER_API_KEY, x: process.env.CMB_TEST_HOLDS_KEY };
+    process.env.GOOGLE_API_KEY = 'google-test-value';
+    process.env.OPENROUTER_API_KEY = 'openrouter-test-value';
+    process.env.CMB_TEST_HOLDS_KEY = 'x-cfgkey-9876543210-y';
+    try {
+      const c = cfg();
+      c.openrouter.apiKey = 'cfgkey-9876543210';
+      expect(antigravityRoute.configured(c)).toBeNull();
+      const env = JSON.parse(fs.readFileSync(envFile, 'utf8')) as Record<string, string>;
+      const names = Object.keys(env).map((k) => k.toUpperCase());
+      for (const n of ['GOOGLE_API_KEY', 'OPENROUTER_API_KEY', 'GEMINI_API_KEY', 'CMB_TEST_HOLDS_KEY']) expect(names).not.toContain(n);
+      expect(JSON.stringify(env)).not.toContain('cfgkey-9876543210');
+    } finally {
+      delete process.env.FAKE_AGY_ENVFILE;
+      for (const [k, v] of [['GOOGLE_API_KEY', saved.g], ['OPENROUTER_API_KEY', saved.o], ['CMB_TEST_HOLDS_KEY', saved.x]] as const) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  });
+
   it('caches the version check', async () => {
     const c = cfg();
     expect(antigravityRoute.configured(c)).toBeNull();
@@ -412,6 +436,8 @@ describe('project customizations agy would load', () => {
     ['.agents/skills.json', '{"inherits": ["../../elsewhere"]}'],
     ['.agents/agents.json', '{"entries": [{"path": "C:/x"}]}'],
     ['_agent/skills.json', '{ "entries" : [] }'],
+    ['.agents/rules.json', '{"entries": [{"path": "../../outside-rules"}]}'],
+    ['.agent/rules.json', '{"inherits": ["C:/shared"]}'],
   ])('refuses %s that points elsewhere', (rel, text) => {
     const { app } = repo();
     write(path.join(app, rel), text);
