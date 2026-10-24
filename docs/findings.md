@@ -149,7 +149,8 @@ The guard reads the payload (`{toolCall:{name,args}, workspacePaths, …}`) and 
   - no segment ending in a dot or space;
   - lexically inside the project;
   - its real path (`realpath`, case-insensitive on Windows) is inside the project's real path;
-  - not a secret file or secret folder under the server's existing rules (`isSecretPath` / `isSecretDir`).
+  - not a secret file or secret folder under the server's existing rules (`isSecretPath` / `isSecretDir`);
+  - no `.git`, `.svn` or `.hg` segment, case-insensitive, checked on both the given path and the real path, so an 8.3 short name like `GIT~1` is caught too. `.git/config` can hold a remote URL with an embedded token, and the review read one through `view_file`. Listing or searching inside these folders is denied as well. Other heavy folders (`node_modules`, `vendor`, `dist`…) stay readable: they hold no extra secrets, and dependency code can matter for an answer.
 - A permitted call gets `{"decision":"allow"}`.
 
 **agy's handling of hook results**, verified live with agy 1.4.7 and a probe hook:
@@ -162,9 +163,13 @@ The guard reads the payload (`{toolCall:{name,args}, workspacePaths, …}`) and 
 | exit status ≠ 0 | blocked (`JSON hook … failed: command failed: exit status N`) |
 | hook slower than its `timeout` | blocked |
 | **empty stdout, exit 0** | **allowed**: this is the one fail-open case, so the guard always prints a decision |
-| `{"decision":"allow"}` | allowed under agy's normal policy (the docs: "delegating to the next hook or default policy") |
+| `{"decision":"allow"}` | allowed: agy's bundled hook docs say "Automatically allow the tool execution" |
 
-The guard answers permitted calls with `allow` because `{}` blocks. `allow` is the documented "no objection" answer, and it never upgrades a call agy itself would deny. Every failure path in the guard (bad payload, missing project, stdin timeout, exception, failed import) prints a deny.
+**Why the guard answers `allow`.** There is no neutral answer: `{}` blocks. `allow` is an auto-allow, so for that one call it overrides the user's own `permissions.deny` and `ask` rules. (The public docs page's "delegating to the next hook or default policy" wording is wrong on this point.)
+
+That is acceptable because the guard only ever allows three read tools (`view_file`, `list_dir`, `find_by_name`), on non-secret, non-VCS paths inside the project the user asked about. A user who has denied reads of some project path in agy should know the bridge does not apply that rule; its own secret rules apply instead.
+
+Every failure path in the guard prints a deny: bad payload, missing project, stdin timeout, exception, or failed import. The generated `cmb-guard.mjs` also starts with `process.exitCode = 1` and sets it to 0 only after a decision has been fully written to stdout. So a broken pipe cannot produce the one fail-open result (exit 0 with empty output).
 
 **How agy runs hook commands.** It does **not** run them through `cmd /c`, and it does not honour quotes: `node "C:\…\probe.cjs"` reached node with the literal quotes, and the script was not found. The working directory is the folder holding `hooks.json`. So the command is `node cmb-guard.mjs`, a relative file name with no quotes and no spaces, and the route puts node's folder first on agy's `PATH`.
 
@@ -197,6 +202,7 @@ Before starting agy, the route checks every one of those four folders in the pro
 The route refuses (`unavailable`, naming the file, without starting agy) when any of these exists:
 
 - `hooks.json`, `plugins/`, `plugins.json` or `mcp_config.json`;
+- a `rules.json` containing `inherits` or `entries`, which can pull rule Markdown from outside the project into the model's context;
 - a `skills.json` or `agents.json` containing `inherits` or `entries`, which can pull in definitions from anywhere;
 - an agent definition (`agents/<name>.md` or `agents/<name>/agent.md`) whose frontmatter has `hooks:`, `plugins:` or `mcpServers:`;
 - a folder it cannot read (fails closed).
