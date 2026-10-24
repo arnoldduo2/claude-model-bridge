@@ -11,7 +11,10 @@ Set up the model bridge. Never ask the user to paste a key or token into this ch
 - Install on Windows (PowerShell): `irm https://antigravity.google/cli/install.ps1 | iex`
 - Run `agy` once in a terminal and sign in with your Google account.
 - If `agy` is installed outside `PATH` (and, on Windows, outside `%LOCALAPPDATA%\agy\bin`), set `antigravity.command` in `~/.claude-model-bridge/config.json` to the full path of `agy.exe`.
-- If an answer fails with `auth`, run `agy` in a terminal and sign in again. If it fails because the read-only agent was not loaded, open `agy` once in that project folder and trust it when asked.
+- If `bridge_status` says the agy version was not tested, update agy (`agy update`) or the bridge.
+- If an answer fails with `auth`, run `agy` in a terminal and sign in again.
+- Do **not** mark project folders as trusted in agy for the bridge's sake. The bridge works without it, and trusting a folder lets that folder's own agy hooks run in your sessions.
+- If the bridge says a project "can make agy run commands", the project ships its own agy hooks, plugins or MCP servers. The bridge then uses another route for it; that is intended.
 
 **gemini** (Gemini API key):
 - Create a key at https://aistudio.google.com/apikey

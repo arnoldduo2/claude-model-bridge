@@ -245,7 +245,7 @@ git add server/src server/test && git commit -m "feat: Gemini API and OpenRouter
 
 **Interfaces:**
 - Consumes: `Route`, `RouteError`, `buildPrompt` (Task 3), and the recipe from `docs/findings.md` (Task 0)
-- Produces: `export const antigravityRoute: Route; export function buildAgyArgs(prompt: string, cwd: string): string[];`
+- Produces: `export const antigravityRoute: Route; export function buildAgyArgs(prompt: string, agent: ReadOnlyAgent, model?: string): string[];` (as built: `agent` is `{ name, dir }` from `ensureReadOnlyAgent(homeDir)`; the project folder is the spawn `cwd`, not an argument). Also `server/src/agy-guard.ts` (`runAgyGuard`, `decideAgyToolCall`), the PreToolUse guard installed with the agent.
 
 If Task 0 decided **dropped**, implement `configured()` to return `"Antigravity CLI headless mode not supported on this machine (see docs/findings.md)"` and skip Steps 1–4 except that test.
 
