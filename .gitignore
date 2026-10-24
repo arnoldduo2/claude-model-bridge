@@ -1,0 +1,6 @@
+.superpowers/
+node_modules/
+coverage/
+*.local.json
+.env*
+desktop/dist/

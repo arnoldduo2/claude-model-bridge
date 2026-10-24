@@ -1,0 +1,24 @@
+{
+  "routeOrder": ["antigravity", "gemini", "openrouter"],
+  "antigravity": {
+    "command": "agy",
+    "timeoutMs": 180000
+  },
+  "gemini": {
+    "apiKey": "",
+    "model": "",
+    "timeoutMs": 120000,
+    "budgetChars": 400000
+  },
+  "openrouter": {
+    "apiKey": "",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "models": [],
+    "timeoutMs": 120000,
+    "budgetChars": 100000
+  },
+  "cooldownMs": 60000,
+  "log": {
+    "fullText": false
+  }
+}

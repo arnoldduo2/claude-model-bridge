@@ -1,0 +1,109 @@
+# Claude Model Bridge
+
+A Claude plugin and MCP server that lets Claude hand broad, token-hungry work to free models and get back a short answer.
+Use it for reading many files, locating where something is handled, summarising large files or logs, and first-draft plans.
+Claude keeps doing the edits; the free model only reads and reports, citing `path:line`.
+
+## Routes
+
+The bridge tries routes in order and moves on after a timeout, a failure, an empty answer or a 429 (which starts a cooldown).
+
+| Route | What it uses | Status in v0.1.1 |
+|---|---|---|
+| `antigravity` | Google's official Antigravity CLI (`agy`) with a Google AI Pro subscription | Not yet available. `bridge_status` shows it as unavailable and the router skips it. |
+| `gemini` | Gemini API with a free AI Studio key (`GEMINI_API_KEY`) | Available |
+| `openrouter` | OpenRouter `:free` models (`OPENROUTER_API_KEY`), or any OpenAI-compatible endpoint set with `openrouter.baseUrl` | Available |
+
+For a self-hosted option, point `openrouter.baseUrl` at a router such as [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi). The key is optional for hosts that do not need one. If `OPENROUTER_API_KEY` is set, it is sent to whatever `baseUrl` is configured.
+
+## Install
+
+**Claude Code (CLI and desktop Code tab):**
+
+```
+/plugin marketplace add arnoldduo2/claude-model-bridge
+/plugin install model-bridge@claude-model-bridge
+```
+
+From a local clone instead: `/plugin marketplace add <path-to-clone>`.
+
+Commands: `/model-bridge:ask`, `/model-bridge:bridge-status`, `/model-bridge:bridge-log`, `/model-bridge:bridge-setup`. Claude also uses the `ask_model` tool on its own, guided by the bundled `model-bridge` skill.
+
+**Claude Desktop chat.** Install the `.mcpb` extension and upload the skill zip, both from GitHub Releases. Steps are in [desktop/README.md](desktop/README.md). Chat has no project folder, so the skill tells Claude to pass `cwd` explicitly.
+
+**Cowork.** Should work via the same plugin; verification is pending.
+
+Requires Node 20 or newer available as `node`.
+
+## Setup (per PC)
+
+Run `/model-bridge:bridge-setup`. It calls `bridge_status` and prints the exact steps for each route that is not configured.
+
+- Gemini: create a key at https://aistudio.google.com/apikey.
+- OpenRouter: create a key at https://openrouter.ai/keys.
+- Windows: `setx GEMINI_API_KEY "<your key>"` (or `OPENROUTER_API_KEY`) in a terminal, then fully restart Claude. macOS/Linux: `export GEMINI_API_KEY="<your key>"` in your shell profile.
+- Or put keys in `~/.claude-model-bridge/config.json` (outside every repo; never commit it).
+
+Never paste keys into the chat. Run `/model-bridge:bridge-status` afterwards to confirm each route.
+
+## Usage
+
+- Just work normally. Claude delegates reading-heavy questions through `ask_model` and spot-checks the cited lines before relying on them.
+- Force a handoff: `/model-bridge:ask [agy|gemini|openrouter] <question>`. A forced route that cannot be used (for example `agy`, which is not available in this build) falls back to the next route, and the footer says `requested antigravity: not available in this build`.
+- Route health, cooldowns and today's handoff counts: `/model-bridge:bridge-status`.
+- Recent handoffs (metadata only): `/model-bridge:bridge-log [count]`.
+
+`ask_model` takes `question`, `task` (`explore`, `plan`, `review`, `ask`), `paths`, `route` (`auto` or a route name), `model` and `cwd`. Every answer ends with a footer naming the route and model that produced it.
+
+- `paths` entries are files, folders or simple globs (`*`, `**`, `?`) relative to `cwd`. They are sent first, in the order given, before any file the bridge picks itself. A named file larger than 200 KB is sent as its head and tail with a `[… N bytes omitted …]` marker.
+- `model` applies only to the forced route (or the first route tried); fallback routes use their own models.
+- `cwd` must be a project folder: the bridge refuses a drive root, your home folder (or a folder containing it) and its own `~/.claude-model-bridge` folder.
+
+## Configuration reference
+
+Optional file: `~/.claude-model-bridge/config.json`. Start from [config.example.json](config.example.json); anything you omit uses the default. Environment variables `GEMINI_API_KEY` and `OPENROUTER_API_KEY` override the file. If the file has a mistake (bad JSON or a field of the wrong type), the server still starts and every tool reports the problem with the file path until you fix it.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `routeOrder` | `["antigravity", "gemini", "openrouter"]` | Order routes are tried in `auto` mode |
+| `antigravity.command` | `agy` | Antigravity CLI binary |
+| `antigravity.timeoutMs` | `180000` | Kill the route after this long |
+| `gemini.apiKey` | unset | Prefer the env var |
+| `gemini.model` | unset | Override the Gemini model |
+| `gemini.timeoutMs` | `120000` | Route timeout |
+| `gemini.budgetChars` | `400000` | Max characters of file context sent |
+| `openrouter.apiKey` | unset | Prefer the env var. Optional for non-OpenRouter hosts |
+| `openrouter.baseUrl` | `https://openrouter.ai/api/v1` | Any OpenAI-compatible endpoint |
+| `openrouter.models` | `[]` | Models to try, in order |
+| `openrouter.timeoutMs` | `120000` | Route timeout |
+| `openrouter.budgetChars` | `100000` | Max characters of file context sent |
+| `cooldownMs` | `60000` | Cooldown after a 429 when the server gives no retry time |
+| `log.fullText` | `false` | Also log full questions and answers |
+
+## Privacy and terms
+
+- **Local files only.** Logs, state and config live in `~/.claude-model-bridge/`. Nothing is written into your projects. Logs hold metadata only unless `log.fullText` is `true`.
+- **Data use.** Free tiers (the Gemini API free tier, many OpenRouter free models, FreeLLMAPI's upstreams) may use submitted code to improve their products. Only delegate code you are comfortable sending, and never secrets: the question and the files read leave your machine.
+- **Secret filtering.** The bridge never sends `.env*` files, key and certificate files, or credential stores (`.ssh`, `.aws`, `.kube`, `.azure`, `.config/gh`, `.config/gcloud`, `.docker/config.json` and similar). In the files it does send, key-shaped tokens and values assigned to names like `password`, `secret`, `token` or `api_key` are replaced with `[REDACTED]`, and your configured API keys are stripped from every prompt. This is a safety net, not a guarantee: still keep secrets out of delegated questions.
+- **Antigravity terms.** The bridge only ever runs Google's official `agy` binary. It never reads or reuses Google sign-in credentials, because Google's terms prohibit third-party use of Gemini CLI and Antigravity OAuth sign-in.
+
+## Development
+
+```bash
+npm install
+npm test                  # vitest
+npm run build             # bundles server to plugin/server/bridge.mjs (committed)
+npm run build:desktop     # .mcpb and skill zip into desktop/dist/
+git config core.hooksPath .githooks   # secret-scan pre-commit check
+```
+
+`npm run check-secrets` scans for key-like strings; the pre-commit hook runs it.
+
+## Roadmap
+
+- Antigravity route (`agy`) once usable non-interactively.
+- Phase 2: run a whole Claude Code session on free models when Claude's limit is exhausted, likely via FreeLLMAPI's Anthropic-compatible endpoint. API keys only, never a Google sign-in.
+
+## License
+
+[MIT](LICENSE)

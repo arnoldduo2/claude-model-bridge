@@ -1,0 +1,27 @@
+{
+  "name": "claude-model-bridge",
+  "version": "0.1.1",
+  "description": "Local MCP server that lets Claude delegate questions to free models",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "node scripts/build.mjs",
+    "check-secrets": "node scripts/check-secrets.mjs",
+    "build:desktop": "node desktop/build.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2",
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.5"
+  }
+}

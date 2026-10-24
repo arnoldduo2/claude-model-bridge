@@ -1,0 +1,62 @@
+{
+  "manifest_version": "0.3",
+  "name": "model-bridge",
+  "display_name": "Claude Model Bridge",
+  "version": "0.1.1",
+  "description": "Hand broad codebase reading, summaries and first-draft plans to a free model (Gemini API or an OpenRouter-compatible endpoint) to save Claude usage.",
+  "author": {
+    "name": "arnoldduo2"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/bridge.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/bridge.mjs"],
+      "env": {
+        "GEMINI_API_KEY": "${user_config.gemini_api_key}",
+        "OPENROUTER_API_KEY": "${user_config.openrouter_api_key}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "ask_model",
+      "description": "Ask a free model to read project files and answer a question."
+    },
+    {
+      "name": "bridge_status",
+      "description": "Show route health, cooldowns and today's handoff counts."
+    },
+    {
+      "name": "bridge_log",
+      "description": "List recent handoffs."
+    }
+  ],
+  "user_config": {
+    "gemini_api_key": {
+      "type": "string",
+      "title": "Gemini API key",
+      "description": "Free key from https://aistudio.google.com/apikey. Leave both keys blank to use ~/.claude-model-bridge/config.json instead.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    },
+    "openrouter_api_key": {
+      "type": "string",
+      "title": "OpenRouter API key",
+      "description": "Key from https://openrouter.ai/keys (free models work without credit). Leave both keys blank to use ~/.claude-model-bridge/config.json instead.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  },
+  "license": "MIT",
+  "keywords": ["gemini", "openrouter", "mcp", "delegation", "token-saving"]
+}

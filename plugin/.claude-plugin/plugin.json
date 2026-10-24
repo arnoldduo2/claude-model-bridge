@@ -1,0 +1,11 @@
+{
+  "name": "model-bridge",
+  "version": "0.1.1",
+  "description": "Hand broad codebase reading, summaries and first-draft plans to a free model (Antigravity/Gemini, Gemini API or OpenRouter-compatible endpoints) to save Claude usage.",
+  "author": {
+    "name": "arnoldduo2"
+  },
+  "repository": "https://github.com/arnoldduo2/claude-model-bridge",
+  "license": "MIT",
+  "keywords": ["gemini", "antigravity", "openrouter", "mcp", "delegation", "token-saving"]
+}

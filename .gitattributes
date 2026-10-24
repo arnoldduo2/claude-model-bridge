@@ -1,0 +1,2 @@
+.githooks/* text eol=lf
+plugin/server/bridge.mjs -diff linguist-generated text eol=lf
