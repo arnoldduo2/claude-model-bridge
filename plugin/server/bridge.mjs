@@ -7,9 +7,9 @@ var __export = (target, all) => {
 };
 
 // server/src/index.ts
-import fs6 from "node:fs";
+import fs7 from "node:fs";
 import os2 from "node:os";
-import path6 from "node:path";
+import path7 from "node:path";
 import { fileURLToPath } from "node:url";
 
 // node_modules/@modelcontextprotocol/server/dist/chunk-vYduTEsO.mjs
@@ -306,10 +306,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path7) {
-  if (!path7)
+function getElementAtPath(obj, path8) {
+  if (!path8)
     return obj;
-  return path7.reduce((acc, key) => acc?.[key], obj);
+  return path8.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -649,11 +649,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path7, issues) {
+function prefixIssues(path8, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path7);
+    iss.path.unshift(path8);
     return iss;
   });
 }
@@ -1114,16 +1114,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path7 = []) => {
+  const processError = (error3, path8 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path8, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -10487,9 +10487,9 @@ var rev2026Codec = {
     });
     const parsed = buildSchemas2026().RequestMetaEnvelopeSchema.safeParse(meta2);
     if (!parsed.success) for (const issue2 of parsed.error.issues) {
-      const path7 = issue2.path.map(String);
-      const key = path7.length > 0 ? path7.join(".") : "_meta";
-      if (path7.length === 1 && issues.some((existing) => existing.key === key && existing.problem === "missing")) continue;
+      const path8 = issue2.path.map(String);
+      const key = path8.length > 0 ? path8.join(".") : "_meta";
+      if (path8.length === 1 && issues.some((existing) => existing.key === key && existing.problem === "missing")) continue;
       issues.push({
         key,
         problem: issue2.message
@@ -10797,17 +10797,17 @@ function scanXMcpHeaderDeclarations(inputSchema) {
   const declarations = [];
   const seenLower = /* @__PURE__ */ new Map();
   let numberFault;
-  const visit = (node2, path7, reachable) => {
+  const visit = (node2, path8, reachable) => {
     if (node2 === null || typeof node2 !== "object") return void 0;
     const schema = node2;
     if (X_MCP_HEADER_KEY in schema) {
-      if (!reachable || path7.length === 0) return `${pathName(path7)}: x-mcp-header is only permitted on properties statically reachable via a chain of 'properties' keys (not under items, additionalProperties, oneOf/anyOf/allOf/not, if/then/else, or $ref)`;
+      if (!reachable || path8.length === 0) return `${pathName(path8)}: x-mcp-header is only permitted on properties statically reachable via a chain of 'properties' keys (not under items, additionalProperties, oneOf/anyOf/allOf/not, if/then/else, or $ref)`;
       const raw = schema[X_MCP_HEADER_KEY];
-      if (typeof raw !== "string" || raw.length === 0) return `${pathName(path7)}: x-mcp-header MUST be a non-empty string`;
-      if (!RFC9110_TOKEN.test(raw)) return `${pathName(path7)}: x-mcp-header '${raw}' is not a valid RFC 9110 token (no spaces, control characters or HTTP delimiters)`;
+      if (typeof raw !== "string" || raw.length === 0) return `${pathName(path8)}: x-mcp-header MUST be a non-empty string`;
+      if (!RFC9110_TOKEN.test(raw)) return `${pathName(path8)}: x-mcp-header '${raw}' is not a valid RFC 9110 token (no spaces, control characters or HTTP delimiters)`;
       const type = typeof schema.type === "string" ? schema.type : void 0;
       if (type === void 0 || !PERMITTED_X_MCP_HEADER_TYPES.has(type)) {
-        const fault$1 = `${pathName(path7)}: x-mcp-header is only permitted on primitive-typed properties (string, integer, boolean); got ${type ?? "<none>"}`;
+        const fault$1 = `${pathName(path8)}: x-mcp-header is only permitted on primitive-typed properties (string, integer, boolean); got ${type ?? "<none>"}`;
         if (type !== "number") return fault$1;
         numberFault ??= fault$1;
       }
@@ -10816,14 +10816,14 @@ function scanXMcpHeaderDeclarations(inputSchema) {
       if (prior !== void 0) return `x-mcp-header '${raw}' is not case-insensitively unique (also declared as '${prior}')`;
       seenLower.set(lower, raw);
       declarations.push({
-        path: path7,
+        path: path8,
         headerName: raw,
         type
       });
     }
     const properties = schema.properties;
     if (properties !== null && typeof properties === "object") for (const [key, child] of Object.entries(properties)) {
-      const fault$1 = visit(child, [...path7, key], reachable);
+      const fault$1 = visit(child, [...path8, key], reachable);
       if (fault$1 !== void 0) return fault$1;
     }
     for (const k of NON_REACHABLE_SUBSCHEMA_KEYWORDS) {
@@ -10831,7 +10831,7 @@ function scanXMcpHeaderDeclarations(inputSchema) {
       if (sub === void 0) continue;
       const branches = Array.isArray(sub) ? sub : sub !== null && typeof sub === "object" && OBJECT_VALUED_SUBSCHEMA_KEYWORDS.has(k) ? Object.values(sub) : [sub];
       for (const branch of branches) {
-        const fault$1 = visit(branch, [...path7, `<${k}>`], false);
+        const fault$1 = visit(branch, [...path8, `<${k}>`], false);
         if (fault$1 !== void 0) return fault$1;
       }
     }
@@ -10876,8 +10876,8 @@ var OBJECT_VALUED_SUBSCHEMA_KEYWORDS = /* @__PURE__ */ new Set([
   "$defs",
   "definitions"
 ]);
-function pathName(path7) {
-  return path7.length === 0 ? "<root>" : path7.join(".");
+function pathName(path8) {
+  return path8.length === 0 ? "<root>" : path8.join(".");
 }
 var HEADER_MISMATCH_ERROR_CODE = -32020;
 var INBOUND_VALIDATION_LADDER = [
@@ -11130,7 +11130,7 @@ var PROPERTY_KEYS_BY_TYPE = {
   array: shapeKeys([UntitledMultiSelectEnumSchemaSchema, TitledMultiSelectEnumSchemaSchema])
 };
 var SUPPORTED_STRING_FORMATS = new Set(StringSchemaSchema.shape.format.unwrap().options);
-function walkProperty(node2, path7, vendor, unsupported) {
+function walkProperty(node2, path8, vendor, unsupported) {
   if (!isJsonObject(node2)) return node2;
   const allowedKeys = typeof node2.type === "string" && Object.hasOwn(PROPERTY_KEYS_BY_TYPE, node2.type) ? PROPERTY_KEYS_BY_TYPE[node2.type] : void 0;
   if (allowedKeys === void 0) return node2;
@@ -11138,8 +11138,8 @@ function walkProperty(node2, path7, vendor, unsupported) {
   for (const [key, value] of Object.entries(node2)) if (allowedKeys.has(key) || isAnnotationOnlyJsonSchemaKeyword(key)) pruned[key] = value;
   else if (key === "pattern" && node2.type === "string" && typeof node2.format === "string") {
     if (!SUPPORTED_STRING_FORMATS.has(node2.format)) pruned[key] = value;
-    else if (typeof value !== "string" || !isLibraryFormatPattern(node2.format, value, vendor)) unsupported.push(`${path7}.${key}`);
-  } else unsupported.push(`${path7}.${key}`);
+    else if (typeof value !== "string" || !isLibraryFormatPattern(node2.format, value, vendor)) unsupported.push(`${path8}.${key}`);
+  } else unsupported.push(`${path8}.${key}`);
   return pruned;
 }
 function walkRequestedSchema(converted, vendor) {
@@ -11156,11 +11156,11 @@ function describeUnsupportedProperties(pruned, fallback) {
   const offenders = Object.entries(pruned.properties).filter(([, node2]) => !parseSchema(PrimitiveSchemaDefinitionSchema, node2).success).map(([name]) => `properties.${name}`);
   return offenders.length > 0 ? offenders.join(", ") : fallback;
 }
-function findDroppedConstraintPaths(original, parsed, path7 = "") {
-  if (Array.isArray(original) && Array.isArray(parsed)) return original.flatMap((item, index) => findDroppedConstraintPaths(item, parsed[index], `${path7}[${index}]`));
+function findDroppedConstraintPaths(original, parsed, path8 = "") {
+  if (Array.isArray(original) && Array.isArray(parsed)) return original.flatMap((item, index) => findDroppedConstraintPaths(item, parsed[index], `${path8}[${index}]`));
   if (!isJsonObject(original) || !isJsonObject(parsed)) return [];
   return Object.entries(original).flatMap(([key, value]) => {
-    const childPath = path7 ? `${path7}.${key}` : key;
+    const childPath = path8 ? `${path8}.${key}` : key;
     if (!Object.prototype.hasOwnProperty.call(parsed, key)) return isAnnotationOnlyJsonSchemaKeyword(key) ? [] : [childPath];
     return findDroppedConstraintPaths(value, parsed[key], childPath);
   });
@@ -15298,8 +15298,8 @@ var require_utils = /* @__PURE__ */ __commonJSMin(((exports, module) => {
     for (let i = 0; i < str.length; i++) if (str[i] === token) ind++;
     return ind;
   }
-  function removeDotSegments(path7) {
-    let input = path7;
+  function removeDotSegments(path8) {
+    let input = path8;
     const output = [];
     let nextSlash = -1;
     let len = 0;
@@ -15637,8 +15637,8 @@ var require_schemes = /* @__PURE__ */ __commonJSMin(((exports, module) => {
     }
     if (wsComponent.resourceName) {
       const queryIndex = wsComponent.resourceName.indexOf("?");
-      const path7 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-      wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
+      const path8 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+      wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
       wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
       wsComponent.resourceName = void 0;
     }
@@ -19741,11 +19741,11 @@ var require_dist = /* @__PURE__ */ __commonJSMin(((exports, module) => {
     if (!f) throw new Error(`Unknown format "${name}"`);
     return f;
   };
-  function addFormats2(ajv, list, fs7, exportName) {
+  function addFormats2(ajv, list, fs8, exportName) {
     var _a3;
     var _b;
     (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 || (_b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`);
-    for (const f of list) ajv.addFormat(f, fs7[f]);
+    for (const f of list) ajv.addFormat(f, fs8[f]);
   }
   module.exports = exports = formatsPlugin;
   Object.defineProperty(exports, "__esModule", { value: true });
@@ -21961,9 +21961,31 @@ function formatFooter(a) {
   return parts.join(" \xB7 ");
 }
 
-// server/src/context.ts
+// server/src/routes/antigravity.ts
+import { spawn } from "node:child_process";
+import crypto2 from "node:crypto";
 import fs4 from "node:fs";
 import path4 from "node:path";
+
+// server/src/prompts.ts
+var TASK_INSTRUCTIONS = {
+  explore: "Explore the code below and explain how it works as it relates to the question.",
+  plan: "Produce a concrete implementation plan: ordered steps, the files each step touches, and the risks to watch for.",
+  review: "Review the code below. List concrete bugs, risks, and missing edge cases, most severe first.",
+  ask: "Answer the question using the code below."
+};
+function buildPrompt(req, context) {
+  const parts = [
+    "You are a read-only code analysis assistant. You cannot run or modify anything; answer from the provided files only.",
+    TASK_INSTRUCTIONS[req.task],
+    "Rules: cite the source for every claim as file:line. If the files do not contain the answer, say so instead of guessing. Be concise: no preamble, no restating the question.",
+    `Question:
+${req.question}`
+  ];
+  if (context && context.trim()) parts.push(`Project files:
+${context}`);
+  return parts.join("\n\n");
+}
 
 // server/src/redact.ts
 var REDACTED = "[REDACTED]";
@@ -22086,7 +22108,302 @@ function stripKeys(text, keys) {
   return out;
 }
 
+// server/src/routes/antigravity.ts
+var READ_ONLY_TOOLS = ["view_file", "list_dir", "grep_search", "find_by_name"];
+var AGENT_PREFIX = "cmb-readonly-";
+var AGENT_FILE_RE = /^cmb-readonly-[0-9a-f]{16}\.md$/;
+var AGENT_WORKSPACE = "agy-workspace";
+var MAX_PROMPT_CHARS = 3e4;
+var MAX_OUTPUT_BYTES = 5e6;
+var KILL_GRACE_MS = 2e3;
+var INSTALL_HINT = "Antigravity CLI (agy) not found. To install it on Windows (PowerShell): irm https://antigravity.google/cli/install.ps1 | iex \u2014 then run agy once in a terminal and sign in. If agy is installed somewhere else, set antigravity.command in ~/.claude-model-bridge/config.json to its full path.";
+function agentDefinition(name) {
+  return [
+    "---",
+    `name: ${name}`,
+    "description: Read-only code analysis agent used by Claude Model Bridge.",
+    "tools:",
+    ...READ_ONLY_TOOLS.map((t) => `  - ${t}`),
+    "mainAgent: true",
+    "subagent: false",
+    "inheritMcp: false",
+    "commandExecutionPolicy: off",
+    "---",
+    "",
+    "# System Prompt",
+    "You are a read-only code analysis assistant. You can only view, list and search files. You never create, modify or delete files and never run commands.",
+    ""
+  ].join("\n");
+}
+function ensureReadOnlyAgent(homeDir) {
+  const dir = path4.join(homeDir, AGENT_WORKSPACE);
+  const agentsDir = path4.join(dir, ".agents", "agents");
+  fs4.mkdirSync(agentsDir, { recursive: true });
+  const existing = fs4.readdirSync(agentsDir).filter((f) => AGENT_FILE_RE.test(f)).sort()[0];
+  const name = existing ? existing.slice(0, -".md".length) : AGENT_PREFIX + crypto2.randomBytes(8).toString("hex");
+  const file = path4.join(agentsDir, `${name}.md`);
+  const want = agentDefinition(name);
+  let have;
+  try {
+    have = fs4.readFileSync(file, "utf8");
+  } catch {
+    have = void 0;
+  }
+  if (have !== want) fs4.writeFileSync(file, want, "utf8");
+  return { name, dir };
+}
+function buildAgyArgs(prompt, agent, model) {
+  const args = [
+    "-p",
+    prompt,
+    "--output-format",
+    "json",
+    "--disable-slash-commands",
+    "--agent",
+    agent.name,
+    "--add-dir",
+    agent.dir
+  ];
+  if (model) args.push("--model", model);
+  return args;
+}
+function splitCommand(command) {
+  const trimmed = command.trim();
+  if (isFile(trimmed)) return [trimmed];
+  const parts = [];
+  const re = /"([^"]*)"|(\S+)/g;
+  for (let m = re.exec(trimmed); m; m = re.exec(trimmed)) parts.push(m[1] ?? m[2]);
+  return parts;
+}
+function isFile(p) {
+  try {
+    return fs4.statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+function windowsExtensions() {
+  const exts = (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean);
+  return ["", ...exts.map((e) => e.toLowerCase())];
+}
+function resolveExecutable(name) {
+  const win = process.platform === "win32";
+  const candidates = (base) => win && !path4.extname(base) ? windowsExtensions().map((e) => base + e) : [base];
+  if (path4.isAbsolute(name) || name.includes("/") || name.includes("\\")) {
+    return candidates(path4.resolve(name)).find(isFile) ?? null;
+  }
+  const dirs = (process.env.PATH ?? "").split(path4.delimiter).filter(Boolean);
+  if (win && name.toLowerCase() === "agy" && process.env.LOCALAPPDATA) {
+    dirs.push(path4.join(process.env.LOCALAPPDATA, "agy", "bin"));
+  }
+  for (const d of dirs) {
+    const hit = candidates(path4.join(d, name)).find(isFile);
+    if (hit) return hit;
+  }
+  return null;
+}
+var resolveCache = /* @__PURE__ */ new Map();
+function resolveCommand(command) {
+  const cached2 = resolveCache.get(command);
+  if (cached2) return cached2;
+  const [first, ...rest] = splitCommand(command);
+  let result;
+  const exe = first ? resolveExecutable(first) : null;
+  if (!exe) {
+    result = { hint: INSTALL_HINT };
+  } else if (process.platform === "win32" && /\.(cmd|bat)$/i.test(exe)) {
+    result = { hint: `antigravity.command resolves to ${exe}, a batch file. Set antigravity.command to the full path of agy.exe.` };
+  } else {
+    result = { exe, args: rest };
+  }
+  resolveCache.set(command, result);
+  return result;
+}
+function projectPrompt(req) {
+  return [
+    buildPrompt(req),
+    [
+      "Project files:",
+      `Not attached. Read what you need yourself from the project folder ${req.cwd} with your file tools, and stay inside that folder.`,
+      "Never open, read or quote .env files (.env, .env.*), private keys or certificates (*.pem, *.key, *.p12, *.pfx, id_rsa*, id_ed25519*), or credential and secret stores (credentials*, secrets*, *.keystore, .npmrc, .netrc, .pypirc, service-account JSON). If the answer depends on them, say so instead."
+    ].join("\n")
+  ].join("\n\n");
+}
+function killTree(child) {
+  if (child.pid === void 0) return;
+  if (process.platform === "win32") {
+    try {
+      const k = spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+      k.on("error", () => child.kill("SIGKILL"));
+    } catch {
+      child.kill("SIGKILL");
+    }
+  } else {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+    } catch {
+      child.kill("SIGKILL");
+    }
+  }
+}
+function parseEnvelope(stdout) {
+  const tryParse = (s) => {
+    try {
+      const v = JSON.parse(s);
+      return typeof v === "object" && v !== null && !Array.isArray(v) ? v : null;
+    } catch {
+      return null;
+    }
+  };
+  const whole = tryParse(stdout.trim());
+  if (whole) return whole;
+  const lines = stdout.split(/\r?\n/).filter((l) => l.trim().startsWith("{"));
+  return lines.length > 0 ? tryParse(lines[lines.length - 1]) : null;
+}
+function summarise(text) {
+  const s = text.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "<email>").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 3).join(" | ");
+  return s.length > 300 ? `${s.slice(0, 297)}...` : s;
+}
+function classifyAgyError(text) {
+  if (/unknown agent/i.test(text)) return "unavailable";
+  if (/RESOURCE_EXHAUSTED|quota|rate.?limit|too many requests|credits balance is too low|\b429\b/i.test(text)) return "rate_limit";
+  if (/UNAUTHENTICATED|authenticat|\blog ?(back )?in\b|\bsign ?in\b|\bsigned out\b|\bnot signed\b|\b401\b/i.test(text)) return "auth";
+  if (/UNAVAILABLE|\b503\b|network|connection|timed? ?out|DEADLINE_EXCEEDED/i.test(text)) return "unavailable";
+  return "other";
+}
+function failure2(code, envelope, stderr) {
+  const text = [envelope?.error ?? "", stderr].filter(Boolean).join("\n");
+  const kind = classifyAgyError(text);
+  const detail = summarise(text) || `agy exited with code ${code}`;
+  if (kind === "unavailable" && /unknown agent/i.test(text)) {
+    return new RouteError(
+      "unavailable",
+      "agy did not load the bridge's read-only agent (is the project folder trusted in agy?); not running without it"
+    );
+  }
+  return new RouteError(kind, `agy (exit ${code}): ${detail}`);
+}
+var antigravityRoute = {
+  name: "antigravity",
+  configured(cfg) {
+    const r = resolveCommand(cfg.antigravity.command);
+    return "hint" in r ? r.hint : null;
+  },
+  async ask(req, cfg, signal) {
+    const resolved = resolveCommand(cfg.antigravity.command);
+    if ("hint" in resolved) throw new RouteError("not_configured", resolved.hint);
+    if (fs4.existsSync(path4.join(req.cwd, ".agents", "hooks.json"))) {
+      throw new RouteError(
+        "unavailable",
+        "the project defines agy hooks (.agents/hooks.json), which can run commands; not delegating to antigravity"
+      );
+    }
+    let agent;
+    try {
+      agent = ensureReadOnlyAgent(cfg.homeDir);
+    } catch (err) {
+      throw new RouteError("other", `could not write the read-only agy agent: ${err.message}`);
+    }
+    const prompt = stripKeys(projectPrompt(req), [cfg.gemini.apiKey, cfg.openrouter.apiKey]);
+    if (prompt.length > MAX_PROMPT_CHARS) {
+      throw new RouteError("other", `question too long for the agy command line (${prompt.length} > ${MAX_PROMPT_CHARS} characters)`);
+    }
+    if (signal.aborted) throw new RouteError("timeout", "no response before the route timeout");
+    const args = [...resolved.args, ...buildAgyArgs(prompt, agent, req.model)];
+    return new Promise((resolve, reject) => {
+      let child;
+      try {
+        child = spawn(resolved.exe, args, {
+          cwd: req.cwd,
+          stdio: ["ignore", "pipe", "pipe"],
+          shell: false,
+          windowsHide: true,
+          detached: process.platform !== "win32",
+          env: process.env
+        });
+      } catch (err) {
+        reject(new RouteError("unavailable", `could not start agy: ${err.message}`));
+        return;
+      }
+      const out = [];
+      const errOut = [];
+      let bytes = 0;
+      let settled = false;
+      let killedFor;
+      let graceTimer;
+      const finish = (fn) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (graceTimer) clearTimeout(graceTimer);
+        signal.removeEventListener("abort", onAbort);
+        fn();
+      };
+      const stop = (why) => {
+        if (killedFor || settled) return;
+        killedFor = why;
+        killTree(child);
+        graceTimer = setTimeout(() => finish(() => reject(why)), KILL_GRACE_MS);
+      };
+      const onAbort = () => stop(new RouteError("timeout", "no response before the route timeout"));
+      const timer = setTimeout(
+        () => stop(new RouteError("timeout", `agy gave no answer within ${cfg.antigravity.timeoutMs} ms`)),
+        cfg.antigravity.timeoutMs
+      );
+      signal.addEventListener("abort", onAbort, { once: true });
+      const collect = (sink) => (d) => {
+        bytes += d.length;
+        if (bytes > MAX_OUTPUT_BYTES) {
+          stop(new RouteError("other", "agy produced more output than the bridge accepts"));
+          return;
+        }
+        sink.push(d);
+      };
+      child.stdout?.on("data", collect(out));
+      child.stderr?.on("data", collect(errOut));
+      child.on("error", (err) => finish(() => reject(new RouteError("unavailable", `could not start agy: ${err.message}`))));
+      child.on("exit", () => {
+        if (killedFor) {
+          const why = killedFor;
+          finish(() => reject(why));
+        }
+      });
+      child.on("close", (code) => {
+        if (killedFor) {
+          const why = killedFor;
+          finish(() => reject(why));
+          return;
+        }
+        const stdout = Buffer.concat(out).toString("utf8");
+        const stderr = Buffer.concat(errOut).toString("utf8");
+        const envelope = parseEnvelope(stdout);
+        finish(() => {
+          if (code === 0 && envelope?.status === "SUCCESS") {
+            const text = envelope.response ?? "";
+            if (text.trim()) {
+              resolve({ text, model: req.model ?? "agy" });
+              return;
+            }
+            const denied = (envelope.denied_actions ?? []).map((d) => d.action ?? d.display_name).filter(Boolean);
+            reject(
+              new RouteError("empty", `agy returned no text${denied.length ? ` (denied actions: ${[...new Set(denied)].join(", ")})` : ""}`)
+            );
+            return;
+          }
+          if (code === 0 && !envelope) {
+            reject(new RouteError("other", `agy output was not the expected JSON: ${summarise(stdout) || "(no output)"}`));
+            return;
+          }
+          reject(failure2(code, envelope, stderr));
+        });
+      });
+    });
+  }
+};
+
 // server/src/context.ts
+import fs5 from "node:fs";
+import path5 from "node:path";
 var DEFAULT_MAX_FILE_BYTES = 2e5;
 var DEFAULT_MAX_FILES_SCANNED = 2e4;
 var SCORE_READ_BYTES = 64 * 1024;
@@ -22264,10 +22581,10 @@ async function walk(cwd, o) {
   const stack = [o.startRel];
   while (stack.length > 0 && !scanLimited) {
     const relDir = stack.pop();
-    const absDir = relDir ? path4.join(cwd, ...relDir.split("/")) : cwd;
+    const absDir = relDir ? path5.join(cwd, ...relDir.split("/")) : cwd;
     const entries = [];
     try {
-      const dir = await fs4.promises.opendir(absDir);
+      const dir = await fs5.promises.opendir(absDir);
       for await (const entry of dir) entries.push(entry);
     } catch {
       continue;
@@ -22298,11 +22615,11 @@ async function walk(cwd, o) {
         skippedSecrets++;
         continue;
       }
-      fileEntries.push({ rel, abs: path4.join(absDir, entry.name) });
+      fileEntries.push({ rel, abs: path5.join(absDir, entry.name) });
     }
     const sizes = await Promise.all(
       fileEntries.map(
-        (f) => fs4.promises.stat(f.abs).then(
+        (f) => fs5.promises.stat(f.abs).then(
           (st) => st.size,
           () => -1
         )
@@ -22324,17 +22641,17 @@ function normalizeFocusPaths(cwd, paths) {
   for (const p of paths ?? []) {
     let rel = p.trim();
     if (!rel) continue;
-    if (path4.isAbsolute(rel)) rel = path4.relative(cwd, rel);
-    rel = path4.posix.normalize(rel.replace(/\\/g, "/")).replace(/^\.\//, "").replace(/\/+$/, "");
-    if (!rel || rel === "." || rel === ".." || rel.startsWith("../") || path4.isAbsolute(rel)) continue;
+    if (path5.isAbsolute(rel)) rel = path5.relative(cwd, rel);
+    rel = path5.posix.normalize(rel.replace(/\\/g, "/")).replace(/^\.\//, "").replace(/\/+$/, "");
+    if (!rel || rel === "." || rel === ".." || rel.startsWith("../") || path5.isAbsolute(rel)) continue;
     if (!out.includes(rel)) out.push(rel);
   }
   return out;
 }
 var GLOB_CHARS = /[*?]/;
 function isInside(parent, child) {
-  const rel = path4.relative(parent, child);
-  return rel === "" || !rel.startsWith("..") && !path4.isAbsolute(rel);
+  const rel = path5.relative(parent, child);
+  return rel === "" || !rel.startsWith("..") && !path5.isAbsolute(rel);
 }
 var UNSAFE_FOCUS_SEGMENT = /[. ]$/;
 function unsafeFocusEntry(entry) {
@@ -22342,11 +22659,11 @@ function unsafeFocusEntry(entry) {
 }
 async function realInside(cwdReal, abs) {
   try {
-    const st = await fs4.promises.lstat(abs);
+    const st = await fs5.promises.lstat(abs);
     if (st.isSymbolicLink()) return null;
-    const real = await fs4.promises.realpath(abs);
+    const real = await fs5.promises.realpath(abs);
     if (!isInside(cwdReal, real)) return null;
-    return { st, real, rel: path4.relative(cwdReal, real).split(path4.sep).join("/") };
+    return { st, real, rel: path5.relative(cwdReal, real).split(path5.sep).join("/") };
   } catch {
     return null;
   }
@@ -22361,7 +22678,7 @@ async function resolveFocus(cwd, entries, rules, maxFileBytes, maxFilesScanned) 
   let scanLimited = false;
   let cwdReal;
   try {
-    cwdReal = await fs4.promises.realpath(cwd);
+    cwdReal = await fs5.promises.realpath(cwd);
   } catch {
     return { candidates: [], skippedSecrets: 0, scanLimited: false };
   }
@@ -22383,7 +22700,7 @@ async function resolveFocus(cwd, entries, rules, maxFileBytes, maxFilesScanned) 
       skippedSecrets++;
       continue;
     }
-    const abs = dirRel ? path4.join(cwd, ...dirRel.split("/")) : cwd;
+    const abs = dirRel ? path5.join(cwd, ...dirRel.split("/")) : cwd;
     const target = await realInside(cwdReal, abs);
     if (!target) continue;
     const { st, rel: realRel } = target;
@@ -22417,7 +22734,7 @@ async function resolveFocus(cwd, entries, rules, maxFileBytes, maxFilesScanned) 
 async function readRange(abs, start, length) {
   let fh;
   try {
-    fh = await fs4.promises.open(abs, "r");
+    fh = await fs5.promises.open(abs, "r");
     const buf = Buffer.alloc(length);
     const { bytesRead } = await fh.read(buf, 0, length, start);
     return buf.subarray(0, bytesRead);
@@ -22431,7 +22748,7 @@ function readHead(abs, maxBytes) {
   return readRange(abs, 0, maxBytes);
 }
 function extRank(rel) {
-  const ext = path4.posix.extname(rel).toLowerCase();
+  const ext = path5.posix.extname(rel).toLowerCase();
   return SOURCE_EXTENSIONS.has(ext) ? 0 : DOC_EXTENSIONS.has(ext) ? 1 : 2;
 }
 function depthOf(rel) {
@@ -22512,7 +22829,7 @@ async function countNewlines(abs, start, end) {
   if (end - start > MAX_LINE_COUNT_BYTES) return null;
   let n = 0;
   try {
-    for await (const chunk of fs4.createReadStream(abs, { start, end: end - 1 })) {
+    for await (const chunk of fs5.createReadStream(abs, { start, end: end - 1 })) {
       const buf = chunk;
       let i = -1;
       while ((i = buf.indexOf(10, i + 1)) !== -1) n++;
@@ -22576,7 +22893,7 @@ async function gatherContext(o) {
   const budget = Math.max(0, Math.floor(o.budgetChars));
   let rules = [];
   try {
-    rules = parseGitignore(await fs4.promises.readFile(path4.join(o.cwd, ".gitignore"), "utf8"));
+    rules = parseGitignore(await fs5.promises.readFile(path5.join(o.cwd, ".gitignore"), "utf8"));
   } catch {
   }
   const terms = questionTerms(o.question);
@@ -22639,7 +22956,7 @@ File contents:
     }
     let buf;
     try {
-      buf = await fs4.promises.readFile(c.abs);
+      buf = await fs5.promises.readFile(c.abs);
     } catch {
       continue;
     }
@@ -22671,26 +22988,6 @@ File contents:
     }
   }
   return { text, files, truncated, skippedSecrets, redactions };
-}
-
-// server/src/prompts.ts
-var TASK_INSTRUCTIONS = {
-  explore: "Explore the code below and explain how it works as it relates to the question.",
-  plan: "Produce a concrete implementation plan: ordered steps, the files each step touches, and the risks to watch for.",
-  review: "Review the code below. List concrete bugs, risks, and missing edge cases, most severe first.",
-  ask: "Answer the question using the code below."
-};
-function buildPrompt(req, context) {
-  const parts = [
-    "You are a read-only code analysis assistant. You cannot run or modify anything; answer from the provided files only.",
-    TASK_INSTRUCTIONS[req.task],
-    "Rules: cite the source for every claim as file:line. If the files do not contain the answer, say so instead of guessing. Be concise: no preamble, no restating the question.",
-    `Question:
-${req.question}`
-  ];
-  if (context && context.trim()) parts.push(`Project files:
-${context}`);
-  return parts.join("\n\n");
 }
 
 // server/src/routes/http.ts
@@ -22892,16 +23189,16 @@ var openrouterRoute = {
 
 // server/src/routes/index.ts
 function defaultRoutes() {
-  return [geminiRoute, openrouterRoute];
+  return [antigravityRoute, geminiRoute, openrouterRoute];
 }
 
 // server/src/status.ts
-import fs5 from "node:fs";
-import path5 from "node:path";
+import fs6 from "node:fs";
+import path6 from "node:path";
 var HANDOFF_SCAN_LIMIT = 1e5;
 function readCooldowns(cfg, nowMs) {
   try {
-    const parsed = JSON.parse(fs5.readFileSync(path5.join(cfg.homeDir, "state.json"), "utf8"));
+    const parsed = JSON.parse(fs6.readFileSync(path6.join(cfg.homeDir, "state.json"), "utf8"));
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
     const out = {};
     for (const [name, until] of Object.entries(parsed)) {
@@ -22951,7 +23248,7 @@ function formatStatus(cfg, routes, now = /* @__PURE__ */ new Date()) {
   }
   if (lines.length === 0) lines.push("no routes enabled in routeOrder");
   lines.push(`Route order: ${cfg.routeOrder.join(" \u2192 ")}`);
-  lines.push(`Config file: ${path5.join(cfg.homeDir, "config.json")}`);
+  lines.push(`Config file: ${path6.join(cfg.homeDir, "config.json")}`);
   return lines.join("\n");
 }
 function formatLog(entries) {
@@ -22986,7 +23283,7 @@ function loadConfigOrError() {
   }
 }
 function configFailure(err) {
-  const file = err instanceof ConfigError ? err.file : path6.join(defaultHomeDir(), "config.json");
+  const file = err instanceof ConfigError ? err.file : path7.join(defaultHomeDir(), "config.json");
   return reply(
     [
       `The model bridge cannot load its config file: ${err.message}`,
@@ -22998,12 +23295,12 @@ function configFailure(err) {
   );
 }
 function sameOrInside(child, parent) {
-  const norm = (p) => process.platform === "win32" ? path6.resolve(p).toLowerCase() : path6.resolve(p);
-  const rel = path6.relative(norm(parent), norm(child));
-  return rel === "" || !rel.startsWith("..") && !path6.isAbsolute(rel);
+  const norm = (p) => process.platform === "win32" ? path7.resolve(p).toLowerCase() : path7.resolve(p);
+  const rel = path7.relative(norm(parent), norm(child));
+  return rel === "" || !rel.startsWith("..") && !path7.isAbsolute(rel);
 }
 function refusedCwd(project, cfg) {
-  if (path6.parse(project).root === project) return "is a drive or filesystem root";
+  if (path7.parse(project).root === project) return "is a drive or filesystem root";
   const home = os2.homedir();
   if (home && sameOrInside(home, project)) return "is your home folder or contains it";
   if (sameOrInside(project, cfg.homeDir) || sameOrInside(cfg.homeDir, project)) {
@@ -23029,12 +23326,12 @@ function createServer(cfg = loadConfigOrError(), routes = defaultRoutes()) {
     async ({ question, task, paths, route, model, cwd }) => {
       if (cfg instanceof Error) return configFailure(cfg);
       const rawCwd = cwd ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
-      if (!path6.isAbsolute(rawCwd)) {
+      if (!path7.isAbsolute(rawCwd)) {
         return reply(`cwd must be an absolute path, got: ${rawCwd}. Pass cwd explicitly.`, true);
       }
-      const project = path6.resolve(rawCwd);
+      const project = path7.resolve(rawCwd);
       try {
-        if (!fs6.statSync(project).isDirectory()) throw new Error("not a directory");
+        if (!fs7.statSync(project).isDirectory()) throw new Error("not a directory");
       } catch {
         return reply(`cwd does not exist or is not a folder: ${project}. Pass cwd explicitly.`, true);
       }
@@ -23084,7 +23381,7 @@ ${formatFooter(answer)}`, !answer.ok);
         project: string2().optional().describe("Only entries for this project folder.")
       })
     },
-    async ({ n, project }) => cfg instanceof Error ? configFailure(cfg) : reply(formatLog(readLog(cfg, n, project === void 0 ? void 0 : path6.resolve(project))))
+    async ({ n, project }) => cfg instanceof Error ? configFailure(cfg) : reply(formatLog(readLog(cfg, n, project === void 0 ? void 0 : path7.resolve(project))))
   );
   return server;
 }
@@ -23097,7 +23394,7 @@ function isEntryPoint() {
   if (!entry) return false;
   try {
     const canon = (p) => {
-      const real = path6.normalize(fs6.realpathSync(p));
+      const real = path7.normalize(fs7.realpathSync(p));
       return process.platform === "win32" ? real.toLowerCase() : real;
     };
     return canon(entry) === canon(fileURLToPath(import.meta.url));
